@@ -15,26 +15,40 @@ import {
 } from "@/components/ui/carousel";
 import { Separator } from "@/components/ui/separator";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { CalendarIcon } from "lucide-react";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 const PropertyDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const { getProperty, bookProperty } = useData();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   
   const [property, setProperty] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date(Date.now() + 86400000) // Tomorrow
   );
@@ -62,7 +76,7 @@ const PropertyDetailPage = () => {
       return;
     }
     
-    setBookingModalOpen(true);
+    setOpen(true);
   };
 
   const handleConfirmBooking = () => {
@@ -77,7 +91,8 @@ const PropertyDetailPage = () => {
       format(endDate, "yyyy-MM-dd")
     );
     
-    setBookingModalOpen(false);
+    setOpen(false);
+    toast.success("Booking successful! View details in your profile.");
     navigate("/profile");
   };
 
@@ -111,6 +126,56 @@ const PropertyDetailPage = () => {
   };
 
   const estimatedPrice = calculateDays() * property.price;
+
+  // Booking render based on device
+  const BookingUI = () => (
+    <div className="space-y-6 py-4">
+      <div>
+        <h4 className="text-sm font-medium mb-2">Select Move-In Date:</h4>
+        <div className="flex items-center p-2 border rounded-md">
+          <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
+          <span>{selectedDate ? format(selectedDate, "MMMM d, yyyy") : "Select date"}</span>
+        </div>
+        <div className="mt-2 border rounded-md">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            disabled={(date) => date < new Date()}
+            initialFocus
+          />
+        </div>
+      </div>
+      
+      <div>
+        <h4 className="text-sm font-medium mb-2">Select Move-Out Date:</h4>
+        <div className="flex items-center p-2 border rounded-md">
+          <CalendarIcon className="mr-2 h-4 w-4 opacity-70" />
+          <span>{endDate ? format(endDate, "MMMM d, yyyy") : "Select date"}</span>
+        </div>
+        <div className="mt-2 border rounded-md">
+          <Calendar
+            mode="single"
+            selected={endDate}
+            onSelect={setEndDate}
+            disabled={(date) => !selectedDate || date <= selectedDate}
+            initialFocus
+          />
+        </div>
+      </div>
+      
+      <div className="bg-secondary/50 p-4 rounded-lg">
+        <div className="flex justify-between mb-2">
+          <span>Duration:</span>
+          <span>{calculateDays()} days</span>
+        </div>
+        <div className="flex justify-between font-semibold">
+          <span>Estimated Total:</span>
+          <span>${estimatedPrice.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="container py-8">
@@ -203,13 +268,69 @@ const PropertyDetailPage = () => {
                   </div>
                 </div>
                 
-                <Button 
-                  className="w-full"
-                  disabled={!property.isAvailable}
-                  onClick={handleBookNow}
-                >
-                  Rent Now
-                </Button>
+                {isDesktop ? (
+                  <Sheet open={open} onOpenChange={setOpen}>
+                    <SheetTrigger asChild>
+                      <Button 
+                        className="w-full"
+                        disabled={!property.isAvailable}
+                        onClick={handleBookNow}
+                      >
+                        Rent Now
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent className="overflow-y-auto">
+                      <SheetHeader>
+                        <SheetTitle>Book this property</SheetTitle>
+                        <SheetDescription>
+                          Select your move-in and move-out dates to complete the booking.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <BookingUI />
+                      <SheetFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleConfirmBooking}>
+                          Confirm Booking
+                        </Button>
+                      </SheetFooter>
+                    </SheetContent>
+                  </Sheet>
+                ) : (
+                  <Drawer open={open} onOpenChange={setOpen}>
+                    <DrawerTrigger asChild>
+                      <Button 
+                        className="w-full"
+                        disabled={!property.isAvailable}
+                        onClick={handleBookNow}
+                      >
+                        Rent Now
+                      </Button>
+                    </DrawerTrigger>
+                    <DrawerContent className="max-h-[90vh] overflow-y-auto">
+                      <DrawerHeader className="text-left">
+                        <DrawerTitle>Book this property</DrawerTitle>
+                        <DrawerDescription>
+                          Select your move-in and move-out dates to complete the booking.
+                        </DrawerDescription>
+                      </DrawerHeader>
+                      <div className="p-4">
+                        <BookingUI />
+                      </div>
+                      <DrawerFooter className="pt-0">
+                        <div className="flex justify-end gap-2 w-full">
+                          <DrawerClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </DrawerClose>
+                          <Button onClick={handleConfirmBooking}>
+                            Confirm Booking
+                          </Button>
+                        </div>
+                      </DrawerFooter>
+                    </DrawerContent>
+                  </Drawer>
+                )}
                 
                 <p className="text-sm text-muted-foreground text-center">
                   {property.isAvailable 
@@ -222,62 +343,6 @@ const PropertyDetailPage = () => {
           </Card>
         </div>
       </div>
-      
-      {/* Booking Dialog */}
-      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Book this property</DialogTitle>
-            <DialogDescription>
-              Select your move-in and move-out dates to complete the booking.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            <div>
-              <h4 className="text-sm font-medium mb-2">Select Move-In Date:</h4>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                disabled={(date) => date < new Date()}
-                className="rounded-md border"
-              />
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium mb-2">Select Move-Out Date:</h4>
-              <Calendar
-                mode="single"
-                selected={endDate}
-                onSelect={setEndDate}
-                disabled={(date) => !selectedDate || date <= selectedDate}
-                className="rounded-md border"
-              />
-            </div>
-            
-            <div className="bg-secondary/50 p-4 rounded-lg">
-              <div className="flex justify-between mb-2">
-                <span>Duration:</span>
-                <span>{calculateDays()} days</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span>Estimated Total:</span>
-                <span>${estimatedPrice.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBookingModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmBooking}>
-              Confirm Booking
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
