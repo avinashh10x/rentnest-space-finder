@@ -90,7 +90,7 @@ const AdminPage = () => {
       return;
     }
 
-    // Get bookings with property and user details
+    // Get bookings with property details - user info is already in booking
     const allBookings = getAllBookings();
     const detailedBookings = allBookings.map(booking => {
       const property = getProperty(booking.propertyId);
@@ -98,8 +98,9 @@ const AdminPage = () => {
         ...booking,
         propertyTitle: property?.title,
         propertyLocation: property?.location,
-        userName: "User", // In a real app, you'd fetch user details
-        userEmail: "user@example.com"
+        // Use actual user info from booking if available, otherwise fallback
+        userName: (booking as any).userName || "Unknown User",
+        userEmail: (booking as any).userEmail || "No email"
       };
     });
     
@@ -598,7 +599,7 @@ const AdminPage = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <span>{booking.userName}</span>
+                            <span className="font-medium">{booking.userName}</span>
                             <p className="text-xs text-muted-foreground">{booking.userEmail}</p>
                           </div>
                         </TableCell>

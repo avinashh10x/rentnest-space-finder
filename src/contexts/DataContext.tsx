@@ -18,6 +18,11 @@ interface DataContextType {
   getAllBookings: () => BookingInfo[];
 }
 
+interface BookingWithUserInfo extends BookingInfo {
+  userName: string;
+  userEmail: string;
+}
+
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const useData = () => {
@@ -147,7 +152,7 @@ const sampleProperties: Property[] = [
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [properties, setProperties] = useState<Property[]>([]);
-  const [bookings, setBookings] = useState<BookingInfo[]>([]);
+  const [bookings, setBookings] = useState<BookingWithUserInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
@@ -297,10 +302,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     const totalPrice = property.price * days;
 
-    const newBooking: BookingInfo = {
+    const newBooking: BookingWithUserInfo = {
       id: `booking-${Date.now()}`,
       propertyId,
       userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
       startDate,
       endDate,
       totalPrice,
