@@ -31,6 +31,12 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch }) => {
     });
   };
 
+  // Create a handler function that converts number[] to the correct tuple type
+  const handlePriceRangeChange = (value: number[]) => {
+    // Ensure we always have exactly two values by converting to a tuple
+    setPriceRange([value[0], value[1]]);
+  };
+
   return (
     <div className="w-full mb-6 p-4 bg-secondary rounded-lg">
       <div className="space-y-4">
@@ -91,7 +97,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch }) => {
               max={10000}
               step={100}
               value={priceRange}
-              onValueChange={setPriceRange}
+              onValueChange={handlePriceRangeChange}
               className="py-4"
             />
           </div>
