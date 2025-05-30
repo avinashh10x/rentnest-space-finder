@@ -87,10 +87,10 @@ const ProfilePage = () => {
         </div>
 
         <Tabs defaultValue="bookings">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
             <TabsTrigger value="bookings">My Bookings</TabsTrigger>
             <TabsTrigger value="profile">Profile Information</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            {/* <TabsTrigger value="settings">Settings</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="bookings" className="mt-6 space-y-6">
@@ -207,7 +207,7 @@ const ProfilePage = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="settings">
+          {/* <TabsContent value="settings">
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Account Settings</CardTitle>
@@ -222,7 +222,7 @@ const ProfilePage = () => {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
       </div>
     </div>
