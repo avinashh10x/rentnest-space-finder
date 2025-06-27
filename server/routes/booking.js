@@ -12,7 +12,13 @@ router.get('/', verifyToken, isAdmin, bookingController.getAllBookings);
 // User gets their bookings
 router.get('/my', verifyToken, bookingController.getUserBookings);
 
+// Check estate availability
+router.get('/availability/:estateId', bookingController.checkAvailability);
+
 // Admin approves a booking
 router.put('/:id/approve', verifyToken, isAdmin, bookingController.approveBooking);
+
+// Cancel a booking (user or admin)
+router.put('/:id/cancel', verifyToken, bookingController.cancelBooking);
 
 module.exports = router;

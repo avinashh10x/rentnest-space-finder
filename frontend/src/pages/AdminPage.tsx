@@ -57,7 +57,7 @@ interface BookingWithDetails extends BookingInfo {
 }
 
 const AdminPage = () => {
-  const { user, isAuthenticated, isAdmin } = useAuth();
+  const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { properties, bookings, getAllBookings, getProperty, addProperty, updateProperty, deleteProperty, approveBooking } = useData();
   const navigate = useNavigate();
 
@@ -82,8 +82,18 @@ const AdminPage = () => {
   const [propertyToDelete, setPropertyToDelete] = useState<string | null>(null);
 
   useEffect(() => {
+    // Wait for authentication to initialize
+    if (authLoading) return;
+
+    // Redirect if user is not authenticated
+    if (!isAuthenticated) {
+      toast.error("Please log in to access this page");
+      navigate("/login");
+      return;
+    }
+
     // Redirect if user is not admin
-    if (!isAuthenticated || !isAdmin) {
+    if (!isAdmin) {
       toast.error("You don't have permission to access this page");
       navigate("/");
       return;
@@ -105,7 +115,7 @@ const AdminPage = () => {
     });
 
     setBookingsWithDetails(detailedBookings);
-  }, [isAuthenticated, isAdmin, navigate, getAllBookings, getProperty, bookings]);
+  }, [authLoading, isAuthenticated, isAdmin, navigate, getAllBookings, getProperty, bookings]);
 
   const handleAddFeature = () => {
     if (!featureInput.trim()) return;

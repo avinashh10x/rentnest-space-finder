@@ -14,6 +14,8 @@ interface DataContextType {
   deleteProperty: (id: string) => Promise<void>;
   bookProperty: (propertyId: string, startDate: string, endDate: string) => Promise<void>;
   approveBooking: (bookingId: string) => Promise<void>;
+  cancelBooking: (bookingId: string) => Promise<void>;
+  checkAvailability: (propertyId: string, startDate: string, endDate: string) => Promise<boolean>;
   getUserBookings: () => BookingInfo[];
   getAllBookings: () => BookingInfo[];
   getProperty: (id: string) => Property | undefined;
@@ -194,6 +196,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Cancel a booking (user or admin)
+  const cancelBooking = async (bookingId: string) => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem("rentnest_token");
+      const res = await fetch(`${API_BASE}/booking/${bookingId}/cancel`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to cancel booking");
+      toast.success("Booking cancelled");
+      await fetchBookings();
+      await fetchProperties();
+    } catch (error) {
+      toast.error("Failed to cancel booking");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Check property availability
+  const checkAvailability = async (propertyId: string, startDate: string, endDate: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE}/booking/availability/${propertyId}?startDate=${startDate}&endDate=${endDate}`);
+      const data = await res.json();
+      return data.isAvailable;
+    } catch (error) {
+      console.error("Failed to check availability:", error);
+      return false;
+    }
+  };
+
   // Helper: get property by id (support both id and _id)
   const getProperty = (id: string): Property | undefined => {
     return properties.find((prop) => (prop as unknown as { id?: string; _id?: string }).id === id || (prop as unknown as { id?: string; _id?: string })._id === id);
@@ -237,7 +271,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fix getUserBookings to not use .user
   const getUserBookings = () => {
     if (!user) return [];
-    return bookings.filter((b) => (b as unknown as { userId?: string; user?: string }).userId === user.id || (b as unknown as { userId?: string; user?: string }).user === user.id);
+    // Filter bookings by user ID - handle both userId and user fields
+    return bookings.filter((b) => {
+      const bookingUserId = (b as unknown as { userId?: string; user?: string | { _id?: string; id?: string } }).userId;
+      const bookingUser = (b as unknown as { userId?: string; user?: string | { _id?: string; id?: string } }).user;
+
+      if (bookingUserId) {
+        return bookingUserId === user.id;
+      }
+
+      if (typeof bookingUser === 'string') {
+        return bookingUser === user.id;
+      }
+
+      if (typeof bookingUser === 'object' && bookingUser) {
+        return bookingUser._id === user.id || bookingUser.id === user.id;
+      }
+
+      return false;
+    });
   };
 
   // Get all bookings (admin)
@@ -262,6 +314,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteProperty,
     bookProperty,
     approveBooking,
+    cancelBooking,
+    checkAvailability,
     getUserBookings,
     getAllBookings,
     getProperty,

@@ -40,7 +40,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 
 const PropertyDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { getProperty, bookProperty } = useData();
+  const { getProperty, bookProperty, checkAvailability } = useData();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -78,9 +78,21 @@ const PropertyDetailPage = () => {
     setOpen(true);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedDate || !endDate || !property || !user) {
       toast.error("Please select valid dates");
+      return;
+    }
+
+    // Check availability first
+    const isAvailable = await checkAvailability(
+      property.id,
+      format(selectedDate, "yyyy-MM-dd"),
+      format(endDate, "yyyy-MM-dd")
+    );
+
+    if (!isAvailable) {
+      toast.error("Property is not available for the selected dates. Please choose different dates.");
       return;
     }
 

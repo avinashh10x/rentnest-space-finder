@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { LogOut } from "lucide-react";
 
@@ -21,13 +22,16 @@ interface BookingWithProperty extends BookingInfo {
 }
 
 const ProfilePage = () => {
-  const { user, logout, isAuthenticated } = useAuth();
-  const { getUserBookings, getProperty, properties, isLoading } = useData();
+  const { user, logout, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { getUserBookings, getProperty, properties, isLoading, cancelBooking } = useData();
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<BookingWithProperty[]>([]);
 
   useEffect(() => {
+    // Wait for authentication to initialize
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       navigate("/login");
       return;
@@ -47,11 +51,17 @@ const ProfilePage = () => {
       });
       setBookings(bookingsWithProperties);
     }
-  }, [isAuthenticated, user, getUserBookings, getProperty, navigate, properties, bookings]);
+  }, [authLoading, isAuthenticated, user, getUserBookings, getProperty, navigate, properties, bookings]);
 
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const handleCancelBooking = async (bookingId: string) => {
+    if (window.confirm("Are you sure you want to cancel this booking?")) {
+      await cancelBooking(bookingId);
+    }
   };
 
   if (isLoading || properties.length === 0) {
@@ -129,12 +139,25 @@ const ProfilePage = () => {
                         </div>
                       )}
                       <div className="p-6 md:w-2/3">
-                        <h3 className="text-lg font-semibold">
-                          {booking.property?.title || "Unknown Property"}
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {booking.property?.location || "Unknown location"}
-                        </p>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              {booking.property?.title || "Unknown Property"}
+                            </h3>
+                            <p className="text-muted-foreground">
+                              {booking.property?.location || "Unknown location"}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              booking.status === "confirmed" ? "default" :
+                                booking.status === "pending" ? "secondary" :
+                                  "destructive"
+                            }
+                          >
+                            {booking.status}
+                          </Badge>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-4 mt-4">
                           <div>
@@ -146,16 +169,12 @@ const ProfilePage = () => {
                             <p>{format(new Date(booking.endDate), "MMM dd, yyyy")}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Status</p>
-                            <p className="capitalize">{booking.status}</p>
-                          </div>
-                          <div>
                             <p className="text-sm text-muted-foreground">Total Price</p>
                             <p>${booking.totalPrice.toLocaleString()}</p>
                           </div>
                         </div>
 
-                        <div className="mt-4">
+                        <div className="mt-4 flex gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -163,6 +182,15 @@ const ProfilePage = () => {
                           >
                             View Property
                           </Button>
+                          {booking.status === "pending" && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelBooking(booking.id)}
+                            >
+                              Cancel Booking
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

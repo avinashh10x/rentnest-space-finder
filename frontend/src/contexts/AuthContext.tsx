@@ -27,18 +27,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user in localStorage
-    const storedUser = localStorage.getItem("rentnest_user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error("Error parsing stored user:", error);
-        localStorage.removeItem("rentnest_user");
+    const initializeAuth = async () => {
+      // Check for stored user and token in localStorage
+      const storedUser = localStorage.getItem("rentnest_user");
+      const storedToken = localStorage.getItem("rentnest_token");
+
+      if (storedUser && storedToken) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+
+          // Validate token by fetching user profile
+          const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+          const profileRes = await fetch(`${API_BASE}/user/profile`, {
+            headers: { Authorization: `Bearer ${storedToken}` }
+          });
+
+          if (profileRes.ok) {
+            const profile = await profileRes.json();
+            // Update user with latest profile data
+            const updatedUser = {
+              id: profile._id || profile.id,
+              email: profile.email || parsedUser.email,
+              name: profile.name || parsedUser.name,
+              role: profile.role || parsedUser.role
+            };
+            setUser(updatedUser);
+            localStorage.setItem("rentnest_user", JSON.stringify(updatedUser));
+          } else {
+            // Token is invalid, clear storage
+            localStorage.removeItem("rentnest_user");
+            localStorage.removeItem("rentnest_token");
+            toast.error("Your session has expired. Please log in again.");
+          }
+        } catch (error) {
+          console.error("Error initializing auth:", error);
+          localStorage.removeItem("rentnest_user");
+          localStorage.removeItem("rentnest_token");
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -69,23 +99,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await res.json();
       if (res.ok && data.token) {
         localStorage.setItem("rentnest_token", data.token);
-        // Optionally fetch user profile
-        const profileRes = await fetch(`${import.meta.env.REACT_APP_API_URL || "http://localhost:5000/api"}/user/profile`, {
+        // Fetch user profile
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        const profileRes = await fetch(`${API_BASE}/user/profile`, {
           headers: { Authorization: `Bearer ${data.token}` }
         });
         const profile = await profileRes.json();
-        setUser({
+        const userData = {
           id: profile._id || profile.id,
           email: profile.email || email,
           name: profile.name || email.split("@")[0],
           role: profile.role || "user" // <-- This should be "admin" if backend returns it
-        });
-        localStorage.setItem("rentnest_user", JSON.stringify({
-          id: profile._id || profile.id,
-          email: profile.email || email,
-          name: profile.name || email.split("@")[0],
-          role: profile.role || "user"
-        }));
+        };
+        setUser(userData);
+        localStorage.setItem("rentnest_user", JSON.stringify(userData));
         toast.success("Login successful!");
         return true;
       } else {

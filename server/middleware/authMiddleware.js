@@ -19,11 +19,9 @@ exports.verifyToken = (req, res, next) => {
     });
 };
 
-exports.isAdmin = (req, res, next) => {
-    User.findById(req.userId, (err, user) => {
-        if (err) {
-            return res.status(500).send({ message: err });
-        }
+exports.isAdmin = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.userId);
         if (!user) {
             return res.status(404).send({ message: 'User Not found.' });
         }
@@ -31,7 +29,9 @@ exports.isAdmin = (req, res, next) => {
             return res.status(403).send({ message: 'Require Admin Role!' });
         }
         next();
-    });
+    } catch (err) {
+        return res.status(500).send({ message: err.message });
+    }
 };
 
 
