@@ -15,7 +15,8 @@ interface DataContextType {
   bookProperty: (propertyId: string, startDate: string, endDate: string) => Promise<void>;
   approveBooking: (bookingId: string) => Promise<void>;
   cancelBooking: (bookingId: string) => Promise<void>;
-  checkAvailability: (propertyId: string, startDate: string, endDate: string) => Promise<boolean>;
+  checkAvailability: (propertyId: string, startDate: string, endDate: string) => Promise<{ isAvailable: boolean; message?: string; conflictingDates?: { startDate: string; endDate: string; status: string } }>;
+  getBookedDates: (propertyId: string) => Promise<{ startDate: string; endDate: string; status: string }[]>;
   getUserBookings: () => BookingInfo[];
   getAllBookings: () => BookingInfo[];
   getProperty: (id: string) => Property | undefined;
@@ -217,14 +218,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Check property availability
-  const checkAvailability = async (propertyId: string, startDate: string, endDate: string): Promise<boolean> => {
+  const checkAvailability = async (propertyId: string, startDate: string, endDate: string): Promise<{ isAvailable: boolean; message?: string; conflictingDates?: { startDate: string; endDate: string; status: string } }> => {
     try {
       const res = await fetch(`${API_BASE}/booking/availability/${propertyId}?startDate=${startDate}&endDate=${endDate}`);
       const data = await res.json();
-      return data.isAvailable;
+      return data;
     } catch (error) {
       console.error("Failed to check availability:", error);
-      return false;
+      return { isAvailable: false, message: "Failed to check availability" };
+    }
+  };
+
+  // Get booked dates for a property
+  const getBookedDates = async (propertyId: string): Promise<{ startDate: string; endDate: string; status: string }[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/booking/booked-dates/${propertyId}`);
+      const data = await res.json();
+      return data.bookedDates || [];
+    } catch (error) {
+      console.error("Failed to get booked dates:", error);
+      return [];
     }
   };
 
@@ -316,6 +329,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     approveBooking,
     cancelBooking,
     checkAvailability,
+    getBookedDates,
     getUserBookings,
     getAllBookings,
     getProperty,

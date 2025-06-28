@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useData } from "../contexts/DataContext";
 import { useAuth } from "../contexts/AuthContext";
+import { Property } from "../models/Property";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,16 +39,35 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
+// Custom styles for booked dates
+const bookedDateStyles = `
+  .rdp-day_selected.booked {
+    background-color: #dc2626 !important;
+    color: white !important;
+  }
+  .rdp-day.booked {
+    background-color: #fca5a5 !important;
+    color: #7f1d1d !important;
+    font-weight: bold !important;
+    border: 2px solid #dc2626 !important;
+  }
+  .rdp-day.booked:hover {
+    background-color: #ef4444 !important;
+    color: white !important;
+  }
+`;
+
 const PropertyDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const { getProperty, bookProperty, checkAvailability } = useData();
+  const { getProperty, bookProperty, checkAvailability, getBookedDates } = useData();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  const [property, setProperty] = useState<any>(null);
+  const [property, setProperty] = useState<Property | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [bookedDates, setBookedDates] = useState<{ startDate: string; endDate: string; status: string }[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date(Date.now() + 86400000) // Tomorrow
   );
@@ -56,17 +76,34 @@ const PropertyDetailPage = () => {
   );
 
   useEffect(() => {
-    if (id) {
-      const propertyData = getProperty(id);
-      if (propertyData) {
-        setProperty(propertyData);
-      } else {
-        toast.error("Property not found");
-        navigate("/properties");
+    const loadPropertyData = async () => {
+      if (id) {
+        const propertyData = getProperty(id);
+        if (propertyData) {
+          setProperty(propertyData);
+          // Load booked dates for this property
+          const dates = await getBookedDates(id);
+          setBookedDates(dates);
+        } else {
+          toast.error("Property not found");
+          navigate("/properties");
+        }
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
-  }, [id, getProperty, navigate]);
+    };
+
+    loadPropertyData();
+
+    // Inject custom styles for booked dates
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = bookedDateStyles;
+    document.head.appendChild(styleSheet);
+
+    return () => {
+      // Cleanup styles on unmount
+      document.head.removeChild(styleSheet);
+    };
+  }, [id, getProperty, getBookedDates, navigate]);
 
   const handleBookNow = () => {
     if (!isAuthenticated) {
@@ -85,14 +122,14 @@ const PropertyDetailPage = () => {
     }
 
     // Check availability first
-    const isAvailable = await checkAvailability(
+    const availabilityResult = await checkAvailability(
       property.id,
       format(selectedDate, "yyyy-MM-dd"),
       format(endDate, "yyyy-MM-dd")
     );
 
-    if (!isAvailable) {
-      toast.error("Property is not available for the selected dates. Please choose different dates.");
+    if (!availabilityResult.isAvailable) {
+      toast.error(availabilityResult.message || "Property is not available for the selected dates. Please choose different dates.");
       return;
     }
 
@@ -105,6 +142,34 @@ const PropertyDetailPage = () => {
     setOpen(false);
     toast.success("Booking successful! View details in your profile.");
     navigate("/profile");
+  };
+
+  // Check if a date is within any booked range
+  const isDateBooked = (date: Date): boolean => {
+    return bookedDates.some(booking => {
+      const bookingStart = new Date(booking.startDate);
+      const bookingEnd = new Date(booking.endDate);
+      return date >= bookingStart && date <= bookingEnd;
+    });
+  };
+
+  // Get formatted unavailable date ranges
+  const getUnavailableDateRanges = (): string => {
+    if (bookedDates.length === 0) return "No dates are currently unavailable.";
+
+    return bookedDates.map(booking => {
+      const start = new Date(booking.startDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const end = new Date(booking.endDate).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      return `${start} - ${end} (${booking.status})`;
+    }).join(', ');
   };
 
   if (isLoading) {
@@ -152,8 +217,14 @@ const PropertyDetailPage = () => {
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
-            disabled={(date) => date < new Date()}
+            disabled={(date) => date < new Date() || isDateBooked(date)}
             initialFocus
+            modifiers={{
+              booked: (date) => isDateBooked(date)
+            }}
+            modifiersClassNames={{
+              booked: 'booked'
+            }}
           />
         </div>
       </div>
@@ -169,10 +240,27 @@ const PropertyDetailPage = () => {
             mode="single"
             selected={endDate}
             onSelect={setEndDate}
-            disabled={(date) => !selectedDate || date <= selectedDate}
+            disabled={(date) => !selectedDate || date <= selectedDate || isDateBooked(date)}
             initialFocus
+            modifiers={{
+              booked: (date) => isDateBooked(date)
+            }}
+            modifiersClassNames={{
+              booked: 'booked'
+            }}
           />
         </div>
+      </div>
+
+      {/* Unavailable dates info */}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+        <h5 className="text-sm font-medium text-red-800 mb-1">Unavailable Dates:</h5>
+        <p className="text-xs text-red-600">
+          {getUnavailableDateRanges()}
+        </p>
+        <p className="text-xs text-red-500 mt-1">
+          Red dates on calendar are not available for booking.
+        </p>
       </div>
 
       <div className="bg-secondary/50 p-4 rounded-lg">

@@ -145,14 +145,54 @@ exports.checkAvailability = async (req, res) => {
                     endDate: { $gte: new Date(startDate) }
                 }
             ]
-        });
+        }).populate('user', 'name email');
 
         const isAvailable = !conflictingBooking;
 
-        res.status(200).json({
-            isAvailable,
-            message: isAvailable ? 'Property is available' : 'Property is not available for selected dates'
-        });
+        if (!isAvailable && conflictingBooking) {
+            const formatDate = (date) => new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            res.status(200).json({
+                isAvailable: false,
+                message: `Property is not available from ${formatDate(conflictingBooking.startDate)} to ${formatDate(conflictingBooking.endDate)}`,
+                conflictingDates: {
+                    startDate: conflictingBooking.startDate,
+                    endDate: conflictingBooking.endDate,
+                    status: conflictingBooking.status
+                }
+            });
+        } else {
+            res.status(200).json({
+                isAvailable: true,
+                message: 'Property is available for selected dates'
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get all booked dates for an estate
+exports.getBookedDates = async (req, res) => {
+    try {
+        const { estateId } = req.params;
+
+        const bookings = await Booking.find({
+            estate: estateId,
+            status: { $in: ['pending', 'confirmed'] }
+        }).select('startDate endDate status');
+
+        const bookedDates = bookings.map(booking => ({
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            status: booking.status
+        }));
+
+        res.status(200).json({ bookedDates });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
